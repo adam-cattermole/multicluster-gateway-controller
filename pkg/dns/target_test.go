@@ -12,6 +12,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/Kuadrant/multicluster-gateway-controller/pkg/apis/v1alpha1"
+	"github.com/Kuadrant/multicluster-gateway-controller/pkg/apis/v1alpha2"
 	testutil "github.com/Kuadrant/multicluster-gateway-controller/test/util"
 )
 
@@ -28,7 +29,7 @@ func TestNewClusterGatewayTarget(t *testing.T) {
 		clusterGateway ClusterGateway
 		defaultGeoCode GeoCode
 		defaultWeight  int
-		customWeights  []*v1alpha1.CustomWeight
+		customWeights  []*v1alpha2.CustomWeight
 	}
 	testCases := []struct {
 		name    string
@@ -49,7 +50,7 @@ func TestNewClusterGatewayTarget(t *testing.T) {
 				},
 				defaultWeight:  100,
 				defaultGeoCode: GeoCode("IE"),
-				customWeights:  []*v1alpha1.CustomWeight{},
+				customWeights:  []*v1alpha2.CustomWeight{},
 			},
 			want: ClusterGatewayTarget{
 				ClusterGateway: &ClusterGateway{
@@ -82,7 +83,7 @@ func TestNewClusterGatewayTarget(t *testing.T) {
 				},
 				defaultWeight:  100,
 				defaultGeoCode: GeoCode("IE"),
-				customWeights: []*v1alpha1.CustomWeight{
+				customWeights: []*v1alpha2.CustomWeight{
 					{
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
@@ -133,7 +134,7 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 	type args struct {
 		gateway         *gatewayapiv1.Gateway
 		clusterGateways []ClusterGateway
-		loadBalancing   *v1alpha1.LoadBalancingSpec
+		loadBalancing   *v1alpha2.LoadBalancingSpec
 	}
 	gateway := &gatewayapiv1.Gateway{
 		ObjectMeta: v1.ObjectMeta{
@@ -225,11 +226,11 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 						GatewayAddresses: buildGatewayAddress(testAddress2),
 					},
 				},
-				loadBalancing: &v1alpha1.LoadBalancingSpec{
-					Weighted: &v1alpha1.LoadBalancingWeighted{
+				loadBalancing: &v1alpha2.LoadBalancingSpec{
+					Weighted: &v1alpha2.LoadBalancingWeighted{
 						DefaultWeight: 255,
 					},
-					Geo: &v1alpha1.LoadBalancingGeo{
+					Geo: &v1alpha2.LoadBalancingGeo{
 						DefaultGeo: "IE",
 					},
 				},
@@ -262,11 +263,11 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 						Weight: testutil.Pointer(255),
 					},
 				},
-				LoadBalancing: &v1alpha1.LoadBalancingSpec{
-					Weighted: &v1alpha1.LoadBalancingWeighted{
+				LoadBalancing: &v1alpha2.LoadBalancingSpec{
+					Weighted: &v1alpha2.LoadBalancingWeighted{
 						DefaultWeight: 255,
 					},
-					Geo: &v1alpha1.LoadBalancingGeo{
+					Geo: &v1alpha2.LoadBalancingGeo{
 						DefaultGeo: "IE",
 					},
 				},
@@ -299,10 +300,10 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 						GatewayAddresses: buildGatewayAddress(testAddress2),
 					},
 				},
-				loadBalancing: &v1alpha1.LoadBalancingSpec{
-					Weighted: &v1alpha1.LoadBalancingWeighted{
+				loadBalancing: &v1alpha2.LoadBalancingSpec{
+					Weighted: &v1alpha2.LoadBalancingWeighted{
 						DefaultWeight: 255,
-						Custom: []*v1alpha1.CustomWeight{
+						Custom: []*v1alpha2.CustomWeight{
 							{
 								Selector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
@@ -313,7 +314,7 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 							},
 						},
 					},
-					Geo: &v1alpha1.LoadBalancingGeo{
+					Geo: &v1alpha2.LoadBalancingGeo{
 						DefaultGeo: "IE",
 					},
 				},
@@ -350,10 +351,10 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 						Weight: testutil.Pointer(255),
 					},
 				},
-				LoadBalancing: &v1alpha1.LoadBalancingSpec{
-					Weighted: &v1alpha1.LoadBalancingWeighted{
+				LoadBalancing: &v1alpha2.LoadBalancingSpec{
+					Weighted: &v1alpha2.LoadBalancingWeighted{
 						DefaultWeight: 255,
-						Custom: []*v1alpha1.CustomWeight{
+						Custom: []*v1alpha2.CustomWeight{
 							{
 								Selector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
@@ -364,7 +365,7 @@ func TestNewMultiClusterGatewayTarget(t *testing.T) {
 							},
 						},
 					},
-					Geo: &v1alpha1.LoadBalancingGeo{
+					Geo: &v1alpha2.LoadBalancingGeo{
 						DefaultGeo: "IE",
 					},
 				},
@@ -469,7 +470,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 	testCases := []struct {
 		name          string
 		defaultWeight int
-		customWeights []*v1alpha1.CustomWeight
+		customWeights []*v1alpha2.CustomWeight
 		clusterLabels map[string]string
 		want          int
 		wantErr       bool
@@ -478,7 +479,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 			name:          "sets geo from default",
 			defaultWeight: 255,
 			clusterLabels: nil,
-			customWeights: []*v1alpha1.CustomWeight{},
+			customWeights: []*v1alpha2.CustomWeight{},
 			want:          255,
 			wantErr:       false,
 		},
@@ -488,7 +489,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 			clusterLabels: map[string]string{
 				"tstlabel1": "TSTATTR",
 			},
-			customWeights: []*v1alpha1.CustomWeight{
+			customWeights: []*v1alpha2.CustomWeight{
 				{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -508,7 +509,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 				"tstlabel1": "TSTATTR",
 				"tstlabel2": "TSTATTR2",
 			},
-			customWeights: []*v1alpha1.CustomWeight{
+			customWeights: []*v1alpha2.CustomWeight{
 				{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -528,7 +529,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 			clusterLabels: map[string]string{
 				"tstlabel1": "TSTATTR",
 			},
-			customWeights: []*v1alpha1.CustomWeight{
+			customWeights: []*v1alpha2.CustomWeight{
 				{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -548,7 +549,7 @@ func TestClusterGatewayTarget_setWeight(t *testing.T) {
 			clusterLabels: map[string]string{
 				"/tstlabel1": "TSTATTR",
 			},
-			customWeights: []*v1alpha1.CustomWeight{
+			customWeights: []*v1alpha2.CustomWeight{
 				{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
@@ -602,7 +603,7 @@ func TestMultiClusterGatewayTarget_RemoveUnhealthyGatewayAddresses(t *testing.T)
 	type fields struct {
 		Gateway               *gatewayapiv1.Gateway
 		ClusterGatewayTargets []ClusterGatewayTarget
-		LoadBalancing         *v1alpha1.LoadBalancingSpec
+		LoadBalancing         *v1alpha2.LoadBalancingSpec
 	}
 	type args struct {
 		probes   []*v1alpha1.DNSHealthCheckProbe

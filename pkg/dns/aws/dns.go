@@ -18,7 +18,9 @@ package aws
 
 import (
 	"fmt"
+	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -31,7 +33,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/Kuadrant/multicluster-gateway-controller/pkg/apis/v1alpha1"
+	"github.com/Kuadrant/multicluster-gateway-controller/pkg/apis/v1alpha2"
 	"github.com/Kuadrant/multicluster-gateway-controller/pkg/dns"
 )
 
@@ -46,7 +48,10 @@ const (
 type Route53DNSProvider struct {
 	client *InstrumentedRoute53
 	logger logr.Logger
-
+	// only consider hosted zones ending with this zone id
+	zoneIDFilter dns.ZoneIDFilter
+	// only consider hosted zones managing domains ending in this suffix
+	domainFilter          dns.DomainFilter
 	healthCheckReconciler dns.HealthCheckReconciler
 }
 
@@ -54,12 +59,18 @@ var _ dns.Provider = &Route53DNSProvider{}
 
 func NewProviderFromSecret(s *v1.Secret) (*Route53DNSProvider, error) {
 
+	if string(s.Data["AWS_ACCESS_KEY_ID"]) == "" || string(s.Data["AWS_SECRET_ACCESS_KEY"]) == "" {
+		return nil, fmt.Errorf("AWS Provider credentials is empty")
+	}
+
+	pConfig, err := dns.ConfigFromJSON(s.Data["CONFIG"])
+	if err != nil {
+		return nil, err
+	}
+
 	config := aws.NewConfig()
 	sessionOpts := session.Options{
 		Config: *config,
-	}
-	if string(s.Data["AWS_ACCESS_KEY_ID"]) == "" || string(s.Data["AWS_SECRET_ACCESS_KEY"]) == "" {
-		return nil, fmt.Errorf("AWS Provider credentials is empty")
 	}
 
 	sessionOpts.Config.Credentials = credentials.NewStaticCredentials(string(s.Data["AWS_ACCESS_KEY_ID"]), string(s.Data["AWS_SECRET_ACCESS_KEY"]), "")
@@ -72,9 +83,14 @@ func NewProviderFromSecret(s *v1.Secret) (*Route53DNSProvider, error) {
 		sess.Config.WithRegion(string(s.Data["REGION"]))
 	}
 
+	zoneIDFilter := dns.NewZoneIDFilter(pConfig.ZoneIDFilter)
+	domainFilter := dns.NewDomainFilter(pConfig.DomainFilter)
+
 	p := &Route53DNSProvider{
-		client: &InstrumentedRoute53{route53.New(sess, config)},
-		logger: log.Log.WithName("aws-route53").WithValues("region", config.Region),
+		client:       &InstrumentedRoute53{route53.New(sess, config)},
+		logger:       log.Log.WithName("aws-route53").WithValues("region", config.Region),
+		zoneIDFilter: zoneIDFilter,
+		domainFilter: domainFilter,
 	}
 
 	if err := validateServiceEndpoints(p); err != nil {
@@ -91,15 +107,32 @@ const (
 	deleteAction action = "DELETE"
 )
 
-func (p *Route53DNSProvider) Ensure(record *v1alpha1.DNSRecord, managedZone *v1alpha1.ManagedZone) error {
-	return p.change(record, managedZone, upsertAction)
+func (p *Route53DNSProvider) Ensure(record *v1alpha2.DNSRecord) error {
+	return p.change(record, upsertAction)
 }
 
-func (p *Route53DNSProvider) Delete(record *v1alpha1.DNSRecord, managedZone *v1alpha1.ManagedZone) error {
-	return p.change(record, managedZone, deleteAction)
+func (p *Route53DNSProvider) Delete(record *v1alpha2.DNSRecord) error {
+	return p.change(record, deleteAction)
 }
 
-func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha1.ManagedZone) (dns.ManagedZoneOutput, error) {
+func (p *Route53DNSProvider) ListZones() (dns.ZoneList, error) {
+	var zoneList dns.ZoneList
+	zones, err := p.zones()
+	if err != nil {
+		return zoneList, err
+	}
+	for _, zone := range zones {
+		dnsName := removeTrailingDot(*zone.Name)
+		zoneID := strings.TrimPrefix(*zone.Id, "/hostedzone/")
+		zoneList.Items = append(zoneList.Items, &dns.Zone{
+			ID:      &zoneID,
+			DNSName: &dnsName,
+		})
+	}
+	return zoneList, nil
+}
+
+func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha2.ManagedZone) (dns.ManagedZoneOutput, error) {
 	var zoneID string
 	if zone.Spec.ID != "" {
 		zoneID = zone.Spec.ID
@@ -156,7 +189,7 @@ func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha1.ManagedZone) (dns.
 	return managedZoneOutput, nil
 }
 
-func (p *Route53DNSProvider) DeleteManagedZone(zone *v1alpha1.ManagedZone) error {
+func (p *Route53DNSProvider) DeleteManagedZone(zone *v1alpha2.ManagedZone) error {
 	_, err := p.client.DeleteHostedZone(&route53.DeleteHostedZoneInput{
 		Id: &zone.Status.ID,
 	})
@@ -185,31 +218,57 @@ func (*Route53DNSProvider) ProviderSpecific() dns.ProviderSpecificLabels {
 	}
 }
 
-func (p *Route53DNSProvider) change(record *v1alpha1.DNSRecord, managedZone *v1alpha1.ManagedZone, action action) error {
+// Zones returns the list of hosted zones.
+func (p *Route53DNSProvider) zones() (map[string]*route53.HostedZone, error) {
+	zones := make(map[string]*route53.HostedZone)
+
+	f := func(resp *route53.ListHostedZonesOutput, lastPage bool) (shouldContinue bool) {
+		for _, zone := range resp.HostedZones {
+			if !p.domainFilter.Match(aws.StringValue(zone.Name)) && !p.zoneIDFilter.Match(aws.StringValue(zone.Id)) {
+				continue
+			}
+			zones[aws.StringValue(zone.Id)] = zone
+		}
+		return true
+	}
+
+	err := p.client.route53.ListHostedZonesPages(&route53.ListHostedZonesInput{}, f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list hosted zones: %w", err)
+	}
+
+	for _, zone := range zones {
+		log.Log.V(1).Info("Considering zone", "zone.Id", aws.StringValue(zone.Id), "zone.Name", aws.StringValue(zone.Name))
+	}
+
+	return zones, nil
+}
+
+func (p *Route53DNSProvider) change(record *v1alpha2.DNSRecord, action action) error {
 	// Configure records.
 	if len(record.Spec.Endpoints) == 0 {
 		return nil
 	}
-	err := p.updateRecord(record, managedZone.Status.ID, string(action))
+	err := p.updateRecord(record, string(action))
 	if err != nil {
-		return fmt.Errorf("failed to update record in route53 hosted zone %s: %v", managedZone.Status.ID, err)
+		return fmt.Errorf("failed to update record in route53 hosted zone %s: %w", *record.Spec.ZoneID, err)
 	}
 	switch action {
 	case upsertAction:
-		p.logger.Info("Upserted DNS record", "record", record.Spec, "hostedZoneID", managedZone.Status.ID)
+		p.logger.Info("Upserted DNS record", "record", record.Spec, "hostedZoneID", record.Spec.ZoneID)
 	case deleteAction:
-		p.logger.Info("Deleted DNS record", "record", record.Spec, "hostedZoneID", managedZone.Status.ID)
+		p.logger.Info("Deleted DNS record", "record", record.Spec, "hostedZoneID", record.Spec.ZoneID)
 	}
 	return nil
 }
 
-func (p *Route53DNSProvider) updateRecord(record *v1alpha1.DNSRecord, zoneID, action string) error {
+func (p *Route53DNSProvider) updateRecord(record *v1alpha2.DNSRecord, action string) error {
 
 	if len(record.Spec.Endpoints) == 0 {
 		return fmt.Errorf("no endpoints")
 	}
 
-	input := route53.ChangeResourceRecordSetsInput{HostedZoneId: aws.String(zoneID)}
+	input := route53.ChangeResourceRecordSetsInput{HostedZoneId: aws.String(*record.Spec.ZoneID)}
 
 	expectedEndpointsMap := make(map[string]struct{})
 	var changes []*route53.Change
@@ -244,14 +303,14 @@ func (p *Route53DNSProvider) updateRecord(record *v1alpha1.DNSRecord, zoneID, ac
 	}
 	resp, err := p.client.ChangeResourceRecordSets(&input)
 	if err != nil {
-		return fmt.Errorf("couldn't update DNS record %s in zone %s: %v", record.Name, zoneID, err)
+		return fmt.Errorf("couldn't update DNS record %s in zone %s: %v", record.Name, *record.Spec.ZoneID, err)
 	}
-	p.logger.Info("Updated DNS record", "record", record, "zone", zoneID, "response", resp)
+	p.logger.Info("Updated DNS record", "record", record, "zone", *record.Spec.ZoneID, "response", resp)
 	return nil
 }
 
-func (p *Route53DNSProvider) changeForEndpoint(endpoint *v1alpha1.Endpoint, action string) (*route53.Change, error) {
-	if endpoint.RecordType != string(v1alpha1.ARecordType) && endpoint.RecordType != string(v1alpha1.CNAMERecordType) && endpoint.RecordType != string(v1alpha1.NSRecordType) {
+func (p *Route53DNSProvider) changeForEndpoint(endpoint *v1alpha2.Endpoint, action string) (*route53.Change, error) {
+	if endpoint.RecordType != string(v1alpha2.ARecordType) && endpoint.RecordType != string(v1alpha2.CNAMERecordType) && endpoint.RecordType != string(v1alpha2.NSRecordType) {
 		return nil, fmt.Errorf("unsupported record type %s", endpoint.RecordType)
 	}
 	domain, targets := endpoint.DNSName, endpoint.Targets
@@ -337,4 +396,13 @@ func validateServiceEndpoints(provider *Route53DNSProvider) error {
 		errs = append(errs, fmt.Errorf("failed to list route53 hosted zones: %v", err))
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+// removeTrailingDot ensures that the hostname receives a trailing dot if it hasn't already.
+func removeTrailingDot(hostname string) string {
+	if net.ParseIP(hostname) != nil {
+		return hostname
+	}
+
+	return strings.TrimSuffix(hostname, ".")
 }

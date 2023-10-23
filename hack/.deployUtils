@@ -350,7 +350,7 @@ data:
   ZONE_ROOT_DOMAIN: ${MGC_ZONE_ROOT_DOMAIN}
   LOG_LEVEL: "${LOG_LEVEL}"
 ---
-apiVersion: kuadrant.io/v1alpha1
+apiVersion: kuadrant.io/v1alpha2
 kind: ManagedZone
 metadata:
   name: ${KIND_CLUSTER_PREFIX}dev-mz
@@ -359,9 +359,10 @@ spec:
   id: ${MGC_AWS_DNS_PUBLIC_ZONE_ID}
   domainName: ${MGC_ZONE_ROOT_DOMAIN}
   description: "Dev Managed Zone"
-  dnsProviderSecretRef:
+  providerRef:
     name: ${KIND_CLUSTER_PREFIX}aws-credentials
     namespace: multicluster-gateway-controller-system
+    kind: Secret
 EOF
 }
 
@@ -387,7 +388,7 @@ data:
   ZONE_NAME: ${ZONE_NAME}
   LOG_LEVEL: "${LOG_LEVEL}"
 ---
-apiVersion: kuadrant.io/v1alpha1
+apiVersion: kuadrant.io/v1alpha2
 kind: ManagedZone
 metadata:
   name: ${KIND_CLUSTER_PREFIX}dev-mz
@@ -396,9 +397,10 @@ spec:
   id: ${ZONE_NAME}
   domainName: ${ZONE_DNS_NAME}
   description: "Dev Managed Zone"
-  dnsProviderSecretRef:
+  providerRef:
     name: ${KIND_CLUSTER_PREFIX}gcp-credentials
     namespace: multicluster-gateway-controller-system
+    kind: Secret
 EOF
 }
 

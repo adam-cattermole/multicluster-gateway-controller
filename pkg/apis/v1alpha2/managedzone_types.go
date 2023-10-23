@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,13 +41,7 @@ type ManagedZoneSpec struct {
 	// +optional
 	ParentManagedZone *ManagedZoneReference `json:"parentManagedZone,omitempty"`
 	// +required
-	SecretRef *SecretRef `json:"dnsProviderSecretRef"`
-}
-
-type SecretRef struct {
-	//+required
-	Namespace string `json:"namespace"`
-	Name      string `json:"name"`
+	ProviderRef ProviderRef `json:"providerRef"`
 }
 
 // ManagedZoneStatus defines the observed state of a Zone
@@ -88,6 +82,10 @@ type ManagedZone struct {
 
 	Spec   ManagedZoneSpec   `json:"spec,omitempty"`
 	Status ManagedZoneStatus `json:"status,omitempty"`
+}
+
+func (p *ManagedZone) GetProviderRef() ProviderRef {
+	return p.Spec.ProviderRef
 }
 
 //+kubebuilder:object:root=true
