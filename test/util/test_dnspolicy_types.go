@@ -81,9 +81,9 @@ func (t *DNSPolicyBuilder) WithProviderSecret(secretName string) *DNSPolicyBuild
 	})
 }
 
-func (t *DNSPolicyBuilder) WithProviderNone(secretName string) *DNSPolicyBuilder {
+func (t *DNSPolicyBuilder) WithProviderNone(name string) *DNSPolicyBuilder {
 	return t.WithProviderRef(v1alpha2.ProviderRef{
-		Name: secretName,
+		Name: name,
 		Kind: v1alpha2.ProviderKindNone,
 	})
 }
