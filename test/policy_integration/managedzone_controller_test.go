@@ -39,7 +39,7 @@ var _ = Describe("ManagedZoneReconciler", func() {
 					Namespace: defaultNS,
 				},
 				Spec: v1alpha2.ManagedZoneSpec{
-					ID:         testutil.Domain,
+					ID:         testutil.Pointer(testutil.Domain),
 					DomainName: testutil.Domain,
 					ProviderRef: v1alpha2.ProviderRef{
 						Name: providerCredential,
@@ -87,7 +87,7 @@ var _ = Describe("ManagedZoneReconciler", func() {
 					Namespace: defaultNS,
 				},
 				Spec: v1alpha2.ManagedZoneSpec{
-					ID:         "invalid_domain",
+					ID:         testutil.Pointer("invalid_domain"),
 					DomainName: "invalid_domain",
 				},
 			}

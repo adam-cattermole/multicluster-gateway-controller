@@ -180,7 +180,7 @@ func (r *ManagedZoneReconciler) publishManagedZone(ctx context.Context, managedZ
 }
 
 func (r *ManagedZoneReconciler) deleteManagedZone(ctx context.Context, managedZone *v1alpha2.ManagedZone) error {
-	if managedZone.Spec.ID != "" {
+	if managedZone.Spec.ID != nil {
 		log.Log.Info("Skipping deletion of managed zone with provider ID specified in spec", "managedZone", managedZone.Name)
 		return nil
 	}

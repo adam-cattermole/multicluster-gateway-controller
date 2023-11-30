@@ -240,8 +240,8 @@ func (g *GoogleDNSProvider) DeleteManagedZone(managedZone *v1alpha2.ManagedZone)
 func (g *GoogleDNSProvider) EnsureManagedZone(managedZone *v1alpha2.ManagedZone) (dns.ManagedZoneOutput, error) {
 	var zoneID string
 
-	if managedZone.Spec.ID != "" {
-		zoneID = managedZone.Spec.ID
+	if managedZone.Spec.ID != nil {
+		zoneID = *managedZone.Spec.ID
 	} else {
 		zoneID = managedZone.Status.ID
 	}
@@ -259,7 +259,7 @@ func (g *GoogleDNSProvider) createManagedZone(managedZone *v1alpha2.ManagedZone)
 	zone := dnsv1.ManagedZone{
 		Name:        zoneID,
 		DnsName:     ensureTrailingDot(managedZone.Spec.DomainName),
-		Description: managedZone.Spec.Description,
+		Description: *managedZone.Spec.Description,
 	}
 	mz, err := g.managedZonesClient.Create(g.project, &zone).Do()
 	if err != nil {

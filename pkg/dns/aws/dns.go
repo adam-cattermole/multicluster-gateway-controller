@@ -123,7 +123,7 @@ func (p *Route53DNSProvider) ListZones() (dns.ZoneList, error) {
 	}
 	for _, zone := range zones {
 		dnsName := removeTrailingDot(*zone.Name)
-		zoneID := strings.TrimPrefix(*zone.Id, "/hostedzone/")
+		zoneID := removeHostedZoneIDPrefix(*zone.Id)
 		zoneList.Items = append(zoneList.Items, &dns.Zone{
 			ID:      &zoneID,
 			DNSName: &dnsName,
@@ -134,8 +134,8 @@ func (p *Route53DNSProvider) ListZones() (dns.ZoneList, error) {
 
 func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha2.ManagedZone) (dns.ManagedZoneOutput, error) {
 	var zoneID string
-	if zone.Spec.ID != "" {
-		zoneID = zone.Spec.ID
+	if zone.Spec.ID != nil {
+		zoneID = *zone.Spec.ID
 	} else {
 		zoneID = zone.Status.ID
 	}
@@ -151,15 +151,18 @@ func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha2.ManagedZone) (dns.
 			return managedZoneOutput, err
 		}
 
-		_, err = p.client.UpdateHostedZoneComment(&route53.UpdateHostedZoneCommentInput{
-			Comment: &zone.Spec.Description,
-			Id:      &zoneID,
-		})
-		if err != nil {
-			log.Log.Error(err, "failed to update hosted zone comment")
+		//Only update if we created the managed zone and description is set
+		if zone.Spec.ID != nil && zone.Spec.Description != nil {
+			_, err = p.client.UpdateHostedZoneComment(&route53.UpdateHostedZoneCommentInput{
+				Comment: zone.Spec.Description,
+				Id:      &zoneID,
+			})
+			if err != nil {
+				log.Log.Error(err, "failed to update hosted zone comment")
+			}
 		}
 
-		managedZoneOutput.ID = *getResp.HostedZone.Id
+		managedZoneOutput.ID = removeHostedZoneIDPrefix(*getResp.HostedZone.Id)
 		managedZoneOutput.RecordCount = *getResp.HostedZone.ResourceRecordSetCount
 		managedZoneOutput.NameServers = getResp.DelegationSet.NameServers
 
@@ -175,7 +178,7 @@ func (p *Route53DNSProvider) EnsureManagedZone(zone *v1alpha2.ManagedZone) (dns.
 		CallerReference: &callerRef,
 		Name:            &zone.Spec.DomainName,
 		HostedZoneConfig: &route53.HostedZoneConfig{
-			Comment:     &zone.Spec.Description,
+			Comment:     zone.Spec.Description,
 			PrivateZone: aws.Bool(false),
 		},
 	})
@@ -405,4 +408,8 @@ func removeTrailingDot(hostname string) string {
 	}
 
 	return strings.TrimSuffix(hostname, ".")
+}
+
+func removeHostedZoneIDPrefix(id string) string {
+	return strings.TrimPrefix(id, "/hostedzone/")
 }

@@ -41,7 +41,12 @@ var _ = Describe("DNSPolicy", func() {
 		gatewayClass = testutil.NewTestGatewayClass("foo", "default", "kuadrant.io/bar")
 		Expect(k8sClient.Create(ctx, gatewayClass)).To(Succeed())
 
-		managedZone = testutil.NewManagedZoneBuilder("mz-example-com", testNamespace, "example.com").ManagedZone
+		managedZone = testutil.NewManagedZoneBuilder("mz-example-com", testNamespace).
+			WithID("1234").
+			WithDomainName("example.com").
+			WithDescription("example.com").
+			WithProviderSecret("secretname").
+			ManagedZone
 		Expect(k8sClient.Create(ctx, managedZone)).To(Succeed())
 
 		dnsPolicyBuilder = testutil.NewDNSPolicyBuilder("test-dns-policy", testNamespace).

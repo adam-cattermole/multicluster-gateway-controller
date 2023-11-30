@@ -38,7 +38,12 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 		gatewayClass = testutil.NewTestGatewayClass("foo", "default", "kuadrant.io/bar")
 		Expect(k8sClient.Create(ctx, gatewayClass)).To(Succeed())
 
-		managedZone = testutil.NewManagedZoneBuilder("mz-example-com", testNamespace, "example.com").ManagedZone
+		managedZone = testutil.NewManagedZoneBuilder("mz-example-com", testNamespace).
+			WithID("1234").
+			WithDomainName("example.com").
+			WithDescription("example.com").
+			WithProviderSecret("secretname").
+			ManagedZone
 		Expect(k8sClient.Create(ctx, managedZone)).To(Succeed())
 
 		gateway = testutil.NewGatewayBuilder(TestGatewayName, gatewayClass.Name, testNamespace).
@@ -150,7 +155,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"ObjectMeta": HaveField("Name", recordName),
 							"Spec": MatchFields(IgnoreExtras, Fields{
-								"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+								"ZoneID":      Equal(managedZone.Spec.ID),
 								"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 								"Endpoints": ConsistOf(
 									PointTo(MatchFields(IgnoreExtras, Fields{
@@ -166,7 +171,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 						MatchFields(IgnoreExtras, Fields{
 							"ObjectMeta": HaveField("Name", wildcardRecordName),
 							"Spec": MatchFields(IgnoreExtras, Fields{
-								"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+								"ZoneID":      Equal(managedZone.Spec.ID),
 								"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 								"Endpoints": ConsistOf(
 									PointTo(MatchFields(IgnoreExtras, Fields{
@@ -210,7 +215,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 							MatchFields(IgnoreExtras, Fields{
 								"ObjectMeta": HaveField("Name", recordName),
 								"Spec": MatchFields(IgnoreExtras, Fields{
-									"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+									"ZoneID":      Equal(managedZone.Spec.ID),
 									"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 									"Endpoints": ConsistOf(
 										PointTo(MatchFields(IgnoreExtras, Fields{
@@ -264,7 +269,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 							MatchFields(IgnoreExtras, Fields{
 								"ObjectMeta": HaveField("Name", wildcardRecordName),
 								"Spec": MatchFields(IgnoreExtras, Fields{
-									"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+									"ZoneID":      Equal(managedZone.Spec.ID),
 									"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 									"Endpoints": ConsistOf(
 										PointTo(MatchFields(IgnoreExtras, Fields{
@@ -342,7 +347,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 							MatchFields(IgnoreExtras, Fields{
 								"ObjectMeta": HaveField("Name", recordName),
 								"Spec": MatchFields(IgnoreExtras, Fields{
-									"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+									"ZoneID":      Equal(managedZone.Spec.ID),
 									"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 									"Endpoints": ConsistOf(
 										PointTo(MatchFields(IgnoreExtras, Fields{
@@ -404,7 +409,7 @@ var _ = Describe("DNSPolicy Multi Cluster", func() {
 							MatchFields(IgnoreExtras, Fields{
 								"ObjectMeta": HaveField("Name", wildcardRecordName),
 								"Spec": MatchFields(IgnoreExtras, Fields{
-									"ZoneID":      PointTo(Equal(managedZone.Spec.ID)),
+									"ZoneID":      Equal(managedZone.Spec.ID),
 									"ProviderRef": Equal(dnsPolicy.Spec.ProviderRef),
 									"Endpoints": ConsistOf(
 										PointTo(MatchFields(IgnoreExtras, Fields{

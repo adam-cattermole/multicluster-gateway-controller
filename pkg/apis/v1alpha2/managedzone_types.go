@@ -31,12 +31,14 @@ type ManagedZoneReference struct {
 type ManagedZoneSpec struct {
 	// ID is the provider assigned id of this  zone (i.e. route53.HostedZone.ID).
 	// +optional
-	ID string `json:"id,omitempty"`
+	ID *string `json:"id,omitempty"`
 	//Domain name of this ManagedZone
+	// +required
 	// +kubebuilder:validation:Pattern=`^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`
 	DomainName string `json:"domainName"`
 	//Description for this ManagedZone
-	Description string `json:"description"`
+	// +optional
+	Description *string `json:"description"`
 	// Reference to another managed zone that this managed zone belongs to.
 	// +optional
 	ParentManagedZone *ManagedZoneReference `json:"parentManagedZone,omitempty"`
@@ -95,13 +97,6 @@ type ManagedZoneList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ManagedZone `json:"items"`
-}
-
-type ManagedHost struct {
-	Subdomain   string
-	Host        string
-	ManagedZone *ManagedZone
-	DnsRecord   *DNSRecord
 }
 
 func init() {

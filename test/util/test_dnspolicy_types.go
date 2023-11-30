@@ -139,28 +139,20 @@ type ManagedZoneBuilder struct {
 	*v1alpha2.ManagedZone
 }
 
-func NewManagedZoneBuilder(name, ns, domainName string) *ManagedZoneBuilder {
+func NewManagedZoneBuilder(name, ns string) *ManagedZoneBuilder {
 	return &ManagedZoneBuilder{
 		&v1alpha2.ManagedZone{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: ns,
 			},
-			Spec: v1alpha2.ManagedZoneSpec{
-				ID:          "1234",
-				DomainName:  domainName,
-				Description: domainName,
-				ProviderRef: v1alpha2.ProviderRef{
-					Name: "secretname",
-					Kind: "Secret",
-				},
-			},
+			Spec: v1alpha2.ManagedZoneSpec{},
 		},
 	}
 }
 
 func (t *ManagedZoneBuilder) WithID(id string) *ManagedZoneBuilder {
-	t.Spec.ID = id
+	t.Spec.ID = &id
 	return t
 }
 
@@ -170,7 +162,7 @@ func (t *ManagedZoneBuilder) WithDomainName(domainName string) *ManagedZoneBuild
 }
 
 func (t *ManagedZoneBuilder) WithDescription(description string) *ManagedZoneBuilder {
-	t.Spec.Description = description
+	t.Spec.Description = &description
 	return t
 }
 

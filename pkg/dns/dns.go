@@ -111,8 +111,12 @@ func (*FakeProvider) Delete(_ *v1alpha2.DNSRecord) error {
 func (*FakeProvider) ListZones() (ZoneList, error) {
 	return ZoneList{}, nil
 }
-func (*FakeProvider) EnsureManagedZone(_ *v1alpha2.ManagedZone) (ManagedZoneOutput, error) {
-	return ManagedZoneOutput{}, nil
+func (*FakeProvider) EnsureManagedZone(mz *v1alpha2.ManagedZone) (ManagedZoneOutput, error) {
+	return ManagedZoneOutput{
+		ID:          *mz.Spec.ID,
+		NameServers: nil,
+		RecordCount: 0,
+	}, nil
 }
 func (*FakeProvider) DeleteManagedZone(_ *v1alpha2.ManagedZone) error { return nil }
 

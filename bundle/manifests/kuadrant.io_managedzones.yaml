@@ -90,7 +90,6 @@ spec:
                 - name
                 type: object
             required:
-            - description
             - domainName
             - providerRef
             type: object
